@@ -35,4 +35,5 @@ Before you begin, ensure you have the following installed on your system:
 
 ## Setup
 
-There are things missing like the sql connector and related helpers. If you want to use this you need to make your own, no schema is provided.
+There are things missing like the sql connector and related helpers. If you want to use this you need to make your own or remove the portions affected.  
+No schema is provided.
