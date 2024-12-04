@@ -5,7 +5,7 @@
 I'm a horrible liar.. MB  
 
 Moving forward, This code will provide a gateway instance for Discord.
-If you want to use in with Docker here is the config I use(partially):
+If you want to use it with Docker here is the config I use(partially):
 ```javascript
 {
     Image: imageName,
