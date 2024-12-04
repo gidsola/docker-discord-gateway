@@ -1,0 +1,123 @@
+import WebSocket from 'ws';
+import Gateway from './Gateway.mjs';
+import VoiceSession from '../client/VoiceSession.mjs';
+/**
+ * Represents a Voice Gateway.
+ * 
+ * @extends Gateway
+ */
+class VoiceGateway extends Gateway {
+  constructor(gatewayInfo, dispatch) {
+    super();
+
+    const voicegateway = new WebSocket(`wss://${gatewayInfo.endpoint}?v=4`);
+
+    if (voicegateway) connectVGateway(voicegateway);
+    else this.client.emit('error', 'Error while connecting to voice gateway: WebSocket not initialized.');
+
+    /**
+     * Connects to the voice gateway and initializes the voice session.
+     * 
+     * @param {WebSocket} voicegateway - The voice gateway WebSocket.
+     */
+    function connectVGateway(voicegateway) {
+      const vSession = new VoiceSession;
+      if (vSession.voiceState.storeVSession(dispatch)) {
+
+        voicegateway
+          .on('error', (e) => {
+            Gateway.client.emit('error', 'Error while connecting to voice gateway: ' + e);
+          })
+
+          .on('open', () => {
+            console.info("Voice Socket OPEN, Sending Voice Ident...");
+            voiceIdentify();
+          })
+
+          .on('message', async (msg) => {
+            try {
+              const
+                vData = JSON.parse(msg),
+                vDispatch = vData.d,
+                vData_op = [];
+
+              console.info("Voice_Data", vData); // Debug
+
+              //Ready
+              vData_op[2] = () => { vSession.voiceState.serverReady(vDispatch); selectProtocol(); };
+
+              //Session Description
+              vData_op[4] = () => { vSession.voiceState.sessionDesc(vDispatch); };
+
+              //Heartbeat Ack
+              vData_op[6] = () => { vSession.vhbACK = true; };
+
+              // Reconnect/Resume
+              vData_op[7] = () => { voicegateway.close(1012); };
+
+              // Hello
+              vData_op[8] = () => { vHeartbeat(vDispatch.heartbeat_interval); };
+
+              vData_op[vData.op] ? vData_op[vData.op]() : Discord.emit('log', 'Unknown Voice Opcode: ' + vData.op);
+            } catch (e) {
+              Gateway.client.emit('error', 'Error while handling voice data: ' + e);
+            }
+          });
+      };
+
+
+      /**
+       * @param {number} _interval 
+       */
+      function vHeartbeat(_interval) {
+        vSession.vhb = setInterval(() => {
+          (vSession.vhbACK)
+            ? (() => {
+              vSession.vhbACK = false;
+              //console.info("Sending voice heartbeat");
+              exports.voicegateway.send(JSON.stringify({ op: 3, d: 133780085 }));
+            })() : exports.voicegateway.close(1002)
+        }, _interval);
+      };
+
+
+
+      function voiceIdentify() {
+        try {
+          exports.voicegateway.send(JSON.stringify({
+            op: 0,
+            d: {
+              server_id: Gateway.client.session.voiceGatewayInfo.guild_id,
+              user_id: Gateway.client.session.sessionReady.application.id,
+              session_id: vSession.voiceSession.session_id,
+              token: Gateway.client.session.voiceGatewayInfo.token
+            }
+          }));
+        } catch (e) { Gateway.client.emit('error', 'Error while Identifying to Voice Gateway: ' + e); }
+      };
+
+
+      function selectProtocol() {
+        try {
+          exports.voicegateway.send(JSON.stringify({
+            op: 1,
+            d: {
+              protocol: "udp",
+              data: {
+                address: vSession.voiceSessionReady.ip,
+                port: vSession.voiceSessionReady.port,
+                mode: "xsalsa20_poly1305"
+              }
+            }
+          }));
+        } catch (e) { Gateway.client.emit('error', 'Error while Selecting Voice Protocol: ' + e); }
+      };
+
+
+    };
+
+  };
+
+};
+
+export default VoiceGateway;

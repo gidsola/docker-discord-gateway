@@ -1,0 +1,10 @@
+{
+  "name": "core",
+  "version": "1a_0",
+  "description": "custom gateway module for OnSocket",
+  "author": "goodsie",
+  "dependencies": {
+    "mysql2": "^3.9.2",
+    "ws": "^8.16.0"
+  }
+}
